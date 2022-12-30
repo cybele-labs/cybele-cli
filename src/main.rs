@@ -40,6 +40,17 @@ fn load_vault(filename: &str, password: &str) -> Result<Vault, ()> {
     Ok(vault)
 }
 
+fn prompt_password(prompt: &str) -> String {
+    let password = rpassword::prompt_password(prompt).unwrap();
+    let password2 = rpassword::prompt_password("Please enter password again: ").unwrap();
+    if password != password2 {
+        println!("The two passwords are not equal, let's try again...");
+        prompt_password(prompt)
+    } else {
+        password
+    }
+}
+
 fn help() {
     println!("Available commands:");
     println!("  - add");
@@ -63,7 +74,7 @@ fn main() {
         Vault::create(None)
     } else {
         println!("Loading encrypted vault...");
-        let password = rpassword::prompt_password("Master password: ").unwrap();
+        let password = prompt_password("Master password: ");
         match load_vault(&args.vault_file, &password) {
             Ok(vault) => {
                 println!("Vault successfully loaded.");
@@ -83,17 +94,17 @@ fn main() {
                 let name = rprompt::prompt_reply("Name: ").unwrap();
                 let hidden = rprompt::prompt_reply("Hide input (y/n): ").unwrap();
                 let password = match hidden.as_str() {
-                    "y" => rpassword::prompt_password("Password: ").unwrap(),
+                    "y" => prompt_password("Password: "),
                     _ => rprompt::prompt_reply("Password: ").unwrap(),
                 };
-                let master_password = rpassword::prompt_password("Master password: ").unwrap();
+                let master_password = prompt_password("Master password: ");
                 match vault.add(&name, &password, &master_password) {
                     Some(_) => {
-                        println!("Password added for <{}>", name.clone());
+                        println!("Password added for <{}>", &name);
                         println!("Don't forget to use the `save` command to save your changes.");
                     }
                     None => {
-                        println!("Password could not be added for <{}>", name.clone());
+                        println!("Password could not be added for <{}>", &name);
                     }
                 };
             }
@@ -104,22 +115,38 @@ fn main() {
                 println!("Don't forget to use the `save` command to save your changes.");
             }
             "get" => {
-                let name = rprompt::prompt_reply("Name: ").unwrap();
-                let master_password = rpassword::prompt_password("Master password: ").unwrap();
-                match vault.get(&name, &master_password) {
-                    Some(password) => println!("{}", &password),
-                    None => println!("Could not find or decrypt password for <{}>", name.clone()),
+                let items = vault.list();
+                let id: usize = rprompt::prompt_reply("ID: ").unwrap().parse().unwrap();
+                if id < items.len() {
+                    let name: &str = &items[id];
+                    let master_password = prompt_password("Master password: ");
+                    match vault.get(&name, &master_password) {
+                        Some(password) => println!("{}: {}", name, &password),
+                        None => println!("Could not find or decrypt password for <{}>", name),
+                    }
+                } else {
+                    println!("Invalid ID <{}>", id);
                 }
             }
             "list" => {
-                vault.list().iter().for_each(|p| println!("{}", p));
+                let filter = rprompt::prompt_reply("Filter: ").unwrap();
+                vault.list().iter().enumerate().for_each(|(pos, item)| {
+                    if item.contains(&filter) {
+                        println!("{}: {}", pos, item)
+                    }
+                });
             }
             "save" => {
-                let master_password = rpassword::prompt_password("Master password: ").unwrap();
+                let master_password = prompt_password("Master password: ");
                 match vault.serialize(&master_password) {
                     Some(serialized) => {
                         if !Path::new(&args.vault_file).exists() {
-                            OpenOptions::new().read(true).write(true).create(true).open(&args.vault_file).unwrap();
+                            OpenOptions::new()
+                                .read(true)
+                                .write(true)
+                                .create(true)
+                                .open(&args.vault_file)
+                                .unwrap();
                         }
                         let mut vault_file = OpenOptions::new().write(true).truncate(true).open(&args.vault_file).unwrap();
                         vault_file.write_all(&serialized).unwrap();
