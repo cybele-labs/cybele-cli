@@ -11,4 +11,3 @@ description = "Command-line interface for the cybele password manager."
 rpassword = "7.2.0"
 rprompt = "2.0.2"
 cybele-core = { git = "https://github.com/cybele-labs/cybele-core" }
-# cybele-core = { path = "../cybele-core" }
