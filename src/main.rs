@@ -120,7 +120,7 @@ fn main() {
                 if id < items.len() {
                     let name: &str = &items[id];
                     let master_password = prompt_password("Master password: ");
-                    match vault.get(&name, &master_password) {
+                    match vault.get(name, &master_password) {
                         Some(password) => println!("{}: {}", name, &password),
                         None => println!("Could not find or decrypt password for <{}>", name),
                     }
