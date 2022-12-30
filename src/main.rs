@@ -23,7 +23,7 @@ fn parse_startup_args() -> Result<StartupArgs, ()> {
 }
 
 fn load_vault(filename: &str, password: &str) -> Result<Vault, ()> {
-    let serialized_vault = match fs::read(&filename) {
+    let serialized_vault = match fs::read(filename) {
         Ok(s) => s,
         Err(_) => {
             println!("Could not read vault file.");
