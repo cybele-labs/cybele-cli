@@ -2,12 +2,12 @@ extern crate cybele_core;
 extern crate rpassword;
 extern crate rprompt;
 
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::env;
 use std::path::Path;
-use std::{env, fs};
 
 use cybele_core::vault::Vault;
+
+mod file;
 
 struct StartupArgs {
     vault_file: String,
@@ -20,24 +20,6 @@ fn parse_startup_args() -> Result<StartupArgs, ()> {
     }
     let vault_file = env::args().nth(1).unwrap();
     Ok(StartupArgs { vault_file })
-}
-
-fn load_vault(filename: &str, password: &str) -> Result<Vault, ()> {
-    let serialized_vault = match fs::read(filename) {
-        Ok(s) => s,
-        Err(_) => {
-            println!("Could not read vault file.");
-            return Err(());
-        }
-    };
-    let vault = match Vault::deserialize(&serialized_vault, password) {
-        Some(vault) => vault,
-        None => {
-            println!("Could not decrypt vault file.");
-            return Err(());
-        }
-    };
-    Ok(vault)
 }
 
 fn prompt_password(prompt: &str) -> String {
@@ -75,7 +57,7 @@ fn main() {
     } else {
         println!("Loading encrypted vault...");
         let password = prompt_password("Master password: ");
-        match load_vault(&args.vault_file, &password) {
+        match file::load_plain_vault(&args.vault_file, &password) {
             Ok(vault) => {
                 println!("Vault successfully loaded.");
                 vault
@@ -138,23 +120,7 @@ fn main() {
             }
             "save" => {
                 let master_password = prompt_password("Master password: ");
-                match vault.serialize(&master_password) {
-                    Some(serialized) => {
-                        if !Path::new(&args.vault_file).exists() {
-                            OpenOptions::new()
-                                .read(true)
-                                .write(true)
-                                .create(true)
-                                .open(&args.vault_file)
-                                .unwrap();
-                        }
-                        let mut vault_file = OpenOptions::new().write(true).truncate(true).open(&args.vault_file).unwrap();
-                        vault_file.write_all(&serialized).unwrap();
-                        vault_file.sync_all().unwrap();
-                        println!("Vault successfully saved.");
-                    }
-                    None => println!("Could not encrypt vault."),
-                };
+                file::save_plain_vault(&vault, &args.vault_file, &master_password);
             }
             "exit" => break,
             _ => println!("Unknown command: enter \"help\" to list available commands."),
