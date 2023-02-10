@@ -9,8 +9,14 @@ use cybele_core::vault::Vault;
 
 mod file;
 
+enum VaultFormat {
+    Plain,
+    Image,
+}
+
 struct StartupArgs {
     vault_file: String,
+    vault_format: VaultFormat,
 }
 
 fn parse_startup_args() -> Result<StartupArgs, ()> {
@@ -19,7 +25,8 @@ fn parse_startup_args() -> Result<StartupArgs, ()> {
         return Err(());
     }
     let vault_file = env::args().nth(1).unwrap();
-    Ok(StartupArgs { vault_file })
+    let vault_format = if vault_file.ends_with(".bmp") { VaultFormat::Image } else { VaultFormat::Plain };
+    Ok(StartupArgs { vault_file, vault_format })
 }
 
 fn prompt_password(prompt: &str) -> String {
@@ -30,6 +37,18 @@ fn prompt_password(prompt: &str) -> String {
         prompt_password(prompt)
     } else {
         password
+    }
+}
+
+fn prompt_color() -> file::Color {
+    match rprompt::prompt_reply("Color (red|green|blue): ").unwrap().to_lowercase().as_str() {
+        "red" => file::Color::Red,
+        "green" => file::Color::Green,
+        "blue" => file::Color::Blue,
+        _ => {
+            println!("Unknown color: valid choices are red, green or blue.");
+            prompt_color()
+        }
     }
 }
 
@@ -57,7 +76,11 @@ fn main() {
     } else {
         println!("Loading encrypted vault...");
         let password = prompt_password("Master password: ");
-        match file::load_plain_vault(&args.vault_file, &password) {
+        let loading = match args.vault_format {
+            VaultFormat::Plain => file::load_plain_vault(&args.vault_file, &password),
+            VaultFormat::Image => file::load_image_vault(&args.vault_file, &password),
+        };
+        match loading {
             Ok(vault) => {
                 println!("Vault successfully loaded.");
                 vault
@@ -103,7 +126,10 @@ fn main() {
                     let name: &str = &items[id];
                     let master_password = prompt_password("Master password: ");
                     match vault.get(name, &master_password) {
-                        Some(password) => println!("{}: {}", name, &password),
+                        Some(password) => {
+                            println!("name: {}", name);
+                            println!("password: {}", &password);
+                        }
                         None => println!("Could not find or decrypt password for <{}>", name),
                     }
                 } else {
@@ -120,7 +146,13 @@ fn main() {
             }
             "save" => {
                 let master_password = prompt_password("Master password: ");
-                file::save_plain_vault(&vault, &args.vault_file, &master_password);
+                match args.vault_format {
+                    VaultFormat::Plain => file::save_plain_vault(&vault, &args.vault_file, &master_password),
+                    VaultFormat::Image => {
+                        let color = prompt_color();
+                        file::save_image_vault(&vault, color, &args.vault_file, &master_password);
+                    }
+                }
             }
             "exit" => break,
             _ => println!("Unknown command: enter \"help\" to list available commands."),
