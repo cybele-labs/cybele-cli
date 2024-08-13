@@ -19,7 +19,7 @@ fn load_file(filename: &str) -> Result<Vec<u8>, ()> {
 }
 
 fn deserialize_vault(serialized_vault: &[u8], master_password: &str) -> Result<Vault, ()> {
-    Vault::deserialize(serialized_vault, master_password).ok_or(println!("Could not decrypt vault file."))
+    Vault::deserialize(serialized_vault, master_password).ok_or_else(|| println!("Could not decrypt vault file."))
 }
 
 /// Save vault to a binary file.
@@ -32,12 +32,12 @@ pub fn save_plain_vault(vault: &Vault, filename: &str, master_password: &str) {
 
 fn save_vault_file(filename: &str, data: &[u8]) {
     if !Path::new(filename).exists() {
-        OpenOptions::new().read(true).write(true).create(true).open(filename).unwrap();
+        OpenOptions::new().read(true).write(true).create(true).truncate(true).open(filename).unwrap();
     }
     let mut vault_file = OpenOptions::new().write(true).truncate(true).open(filename).unwrap();
     vault_file.write_all(data).unwrap();
     vault_file.sync_all().unwrap();
-    println!("Vault successfully saved.");
+    println!("  Vault successfully saved.");
 }
 
 /// Load vault embedded in a bitmap image.
