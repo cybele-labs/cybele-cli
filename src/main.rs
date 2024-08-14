@@ -216,7 +216,8 @@ fn main() {
             }
             "get" => {
                 // If an ID was provided in the arguments, we use it, otherwise we prompt the user.
-                let items = vault.list();
+                let mut items = vault.list();
+                items.sort();
                 let id = match cmd_args.get(1) {
                     Some(id) => id.parse::<usize>().unwrap(),
                     None => rprompt::prompt_reply("  > ID: ").unwrap().parse::<usize>().unwrap(),
@@ -237,7 +238,9 @@ fn main() {
             }
             "list" => {
                 let filter = cmd_args.get(1);
-                vault.list().iter().enumerate().for_each(|(pos, item)| {
+                let mut items = vault.list();
+                items.sort();
+                items.iter().enumerate().for_each(|(pos, item)| {
                     let display = match filter {
                         Some(f) => item.to_lowercase().contains(&f.to_lowercase()),
                         None => true,
