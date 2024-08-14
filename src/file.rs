@@ -37,7 +37,7 @@ fn save_vault_file(filename: &str, data: &[u8]) {
     let mut vault_file = OpenOptions::new().write(true).truncate(true).open(filename).unwrap();
     vault_file.write_all(data).unwrap();
     vault_file.sync_all().unwrap();
-    println!("  Vault successfully saved.");
+    println!("    + Vault successfully saved.");
 }
 
 /// Load vault embedded in a bitmap image.
