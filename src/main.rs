@@ -59,13 +59,15 @@ impl MasterPasswordHash {
 }
 
 fn prompt_master_password(master_hash: &mut MasterPasswordHash) -> String {
-    let password = rpassword::prompt_password("Please enter your master password: ").unwrap();
+    let password = rpassword::prompt_password("  > Please enter your master password: ").unwrap();
     let hash = master_hash.compute_hash(&password);
     match master_hash.hash {
         None => {
-            let password2 = rpassword::prompt_password("Please enter your master password again: ").unwrap();
+            let password2 = rpassword::prompt_password("  > Please enter your master password again: ").unwrap();
             if password != password2 {
-                println!("The two passwords are not equal, let's try again...");
+                println!();
+                println!("    *** The two passwords are not equal, let's try again... ***");
+                println!();
                 prompt_master_password(master_hash)
             } else {
                 master_hash.hash = Some(hash);
@@ -74,7 +76,9 @@ fn prompt_master_password(master_hash: &mut MasterPasswordHash) -> String {
         }
         Some(expected_hash) => {
             if hash != expected_hash {
-                println!("The password is different from the last master password, let's try again...");
+                println!();
+                println!("    *** The password is different from the last master password, let's try again... ***");
+                println!();
                 prompt_master_password(master_hash)
             } else {
                 password
@@ -84,10 +88,12 @@ fn prompt_master_password(master_hash: &mut MasterPasswordHash) -> String {
 }
 
 fn create_password() -> String {
-    let password = rpassword::prompt_password("Password: ").unwrap();
-    let password2 = rpassword::prompt_password("Please enter password again: ").unwrap();
+    let password = rpassword::prompt_password("  > Password: ").unwrap();
+    let password2 = rpassword::prompt_password("  > Please enter password again: ").unwrap();
     if password != password2 {
-        println!("The two passwords are not equal, let's try again...");
+        println!();
+        println!("    *** The two passwords are not equal, let's try again... ***");
+        println!();
         create_password()
     } else {
         password
@@ -96,7 +102,7 @@ fn create_password() -> String {
 
 fn generate_password(password_len: usize) -> String {
     let password = cybele_core::password::generate_password(password_len);
-    let regen = rprompt::prompt_reply(format!("Password = {}, do you want to generate a new one (y/n)? ", password)).unwrap();
+    let regen = rprompt::prompt_reply(format!("  > Password = {}, do you want to generate a new one (y/n)? ", password)).unwrap();
     match regen.as_str() {
         "y" => generate_password(password_len),
         _ => password,
@@ -104,12 +110,14 @@ fn generate_password(password_len: usize) -> String {
 }
 
 fn prompt_color() -> file::Color {
-    match rprompt::prompt_reply("Color (red|green|blue): ").unwrap().to_lowercase().as_str() {
+    match rprompt::prompt_reply("  > Color (red|green|blue): ").unwrap().to_lowercase().as_str() {
         "red" => file::Color::Red,
         "green" => file::Color::Green,
         "blue" => file::Color::Blue,
         _ => {
-            println!("Unknown color: valid choices are red, green or blue.");
+            println!();
+            println!("    *** Unknown color: valid choices are red, green or blue. ***");
+            println!();
             prompt_color()
         }
     }
@@ -118,11 +126,11 @@ fn prompt_color() -> file::Color {
 fn add_to_vault(vault: &mut Vault, name: &str, password: &str, master_password: &str) {
     match vault.add(name, password, master_password) {
         Some(_) => {
-            println!("Password added for <{}>", &name);
-            println!("Don't forget to use the `save` command to save your changes.");
+            println!("    + Password added for <{}>.", &name);
+            println!("    + Don't forget to use the \"save\" command to save your changes.");
         }
         None => {
-            println!("Password could not be added for <{}>", &name);
+            println!("    *** Password could not be added for <{}> ***", &name);
         }
     };
 }
@@ -140,7 +148,16 @@ fn help() {
 
 fn main() {
     println!();
-    println!("Welcome to the Cybele password manager.");
+
+    println!("       ______ ____    ____ .______    _______  __       _______ ");
+    println!("      /      |\\   \\  /   / |   _  \\  |   ____||  |     |   ____|");
+    println!("     |  ,----' \\   \\/   /  |  |_)  | |  |__   |  |     |  |__   ");
+    println!("     |  |       \\_    _/   |   _  <  |   __|  |  |     |   __|  ");
+    println!("     |  `----.    |  |     |  |_)  | |  |____ |  `----.|  |____ ");
+    println!("      \\______|    |__|     |______/  |_______||_______||_______|");
+    println!();
+    println!();
+
     let args = match parse_startup_args() {
         Ok(startup_args) => startup_args,
         Err(()) => return,
@@ -166,57 +183,66 @@ fn main() {
         }
     };
 
+    println!();
     println!("Enter \"help\" to list available commands.");
     println!();
     loop {
         let command = rprompt::prompt_reply("> ").unwrap();
-        println!();
-        match command.as_str() {
+        let cmd_args: Vec<&str> = command.split(' ').collect();
+        match cmd_args[0] {
             "help" => help(),
             "add" => {
-                let name = rprompt::prompt_reply("Name: ").unwrap();
-                let hidden = rprompt::prompt_reply("Hide input (y/n): ").unwrap();
+                let name = rprompt::prompt_reply("  > Name: ").unwrap();
+                let hidden = rprompt::prompt_reply("  > Hide input (y/n): ").unwrap();
                 let password = match hidden.as_str() {
                     "y" => create_password(),
-                    _ => rprompt::prompt_reply("Password: ").unwrap(),
+                    _ => rprompt::prompt_reply("  > Password: ").unwrap(),
                 };
                 let master_password = prompt_master_password(&mut master_password_hash);
                 add_to_vault(&mut vault, &name, &password, &master_password);
             }
             "generate" => {
-                let name = rprompt::prompt_reply("Name: ").unwrap();
-                let password_len: usize = rprompt::prompt_reply("Password length: ").unwrap().parse().unwrap();
+                let name = rprompt::prompt_reply("  > Name: ").unwrap();
+                let password_len: usize = rprompt::prompt_reply("  > Password length: ").unwrap().parse().unwrap();
                 let password = generate_password(password_len);
                 let master_password = prompt_master_password(&mut master_password_hash);
                 add_to_vault(&mut vault, &name, &password, &master_password);
             }
             "remove" => {
-                let name = rprompt::prompt_reply("Name: ").unwrap();
+                let name = rprompt::prompt_reply("  > Name: ").unwrap();
                 vault.remove(name.as_str());
-                println!("  Password for <{}> removed", name);
-                println!("  Don't forget to use the `save` command to save your changes.");
+                println!("    + Password for <{}> removed.", name);
+                println!("    + Don't forget to use the \"save\" command to save your changes.");
             }
             "get" => {
+                // If an ID was provided in the arguments, we use it, otherwise we prompt the user.
                 let items = vault.list();
-                let id: usize = rprompt::prompt_reply("ID: ").unwrap().parse().unwrap();
+                let id = match cmd_args.get(1) {
+                    Some(id) => id.parse::<usize>().unwrap(),
+                    None => rprompt::prompt_reply("  > ID: ").unwrap().parse::<usize>().unwrap(),
+                };
                 if id < items.len() {
                     let name: &str = &items[id];
                     let master_password = prompt_master_password(&mut master_password_hash);
                     match vault.get(name, &master_password) {
                         Some(password) => {
-                            println!("  - name: {}", name);
-                            println!("  - password: {}", &password);
+                            println!("    - name: {}", name);
+                            println!("    - password: {}", &password);
                         }
-                        None => println!("Could not find or decrypt password for <{}>", name),
+                        None => println!("    *** Could not find or decrypt password for <{}>. ***", name),
                     }
                 } else {
-                    println!("Invalid ID <{}>", id);
+                    println!("    *** Invalid ID <{}>. ***", id);
                 }
             }
             "list" => {
-                let filter = rprompt::prompt_reply("Filter: ").unwrap();
+                let filter = cmd_args.get(1);
                 vault.list().iter().enumerate().for_each(|(pos, item)| {
-                    if item.contains(&filter) {
+                    let display = match filter {
+                        Some(f) => item.to_lowercase().contains(&f.to_lowercase()),
+                        None => true,
+                    };
+                    if display {
                         println!("  - {}: {}", pos, item)
                     }
                 });
@@ -232,8 +258,7 @@ fn main() {
                 }
             }
             "exit" => break,
-            _ => println!("Unknown command: enter \"help\" to list available commands."),
+            _ => println!("  *** Unknown command: enter \"help\" to list available commands. ***"),
         }
-        println!();
     }
 }
