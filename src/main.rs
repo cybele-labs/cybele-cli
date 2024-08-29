@@ -58,8 +58,15 @@ impl MasterPasswordHash {
     }
 }
 
-fn prompt_master_password(master_hash: &mut MasterPasswordHash) -> String {
-    let password = rpassword::prompt_password("  > Please enter your master password: ").unwrap();
+fn prompt_master_password(master_hash: &mut MasterPasswordHash, update: bool) -> String {
+    let prompt_text = match update {
+        true => {
+            master_hash.hash = None;
+            "  > Please enter your new master password: "
+        }
+        false => "  > Please enter your master password: ",
+    };
+    let password = rpassword::prompt_password(prompt_text).unwrap();
     let hash = master_hash.compute_hash(&password);
     match master_hash.hash {
         None => {
@@ -68,7 +75,7 @@ fn prompt_master_password(master_hash: &mut MasterPasswordHash) -> String {
                 println!();
                 println!("    *** The two passwords are not equal, let's try again... ***");
                 println!();
-                prompt_master_password(master_hash)
+                prompt_master_password(master_hash, update)
             } else {
                 master_hash.hash = Some(hash);
                 password
@@ -79,7 +86,7 @@ fn prompt_master_password(master_hash: &mut MasterPasswordHash) -> String {
                 println!();
                 println!("    *** The password is different from the last master password, let's try again... ***");
                 println!();
-                prompt_master_password(master_hash)
+                prompt_master_password(master_hash, update)
             } else {
                 password
             }
@@ -142,6 +149,7 @@ fn help() {
     println!("  - remove");
     println!("  - get");
     println!("  - list");
+    println!("  - reset");
     println!("  - save");
     println!("  - exit");
 }
@@ -169,7 +177,7 @@ fn main() {
         Vault::create(None)
     } else {
         println!("Loading encrypted vault...");
-        let password = prompt_master_password(&mut master_password_hash);
+        let password = prompt_master_password(&mut master_password_hash, false);
         let loading = match args.vault_format {
             VaultFormat::Plain => file::load_plain_vault(&args.vault_file, &password),
             VaultFormat::Image => file::load_image_vault(&args.vault_file, &password),
@@ -198,14 +206,14 @@ fn main() {
                     "y" => create_password(),
                     _ => rprompt::prompt_reply("  > Password: ").unwrap(),
                 };
-                let master_password = prompt_master_password(&mut master_password_hash);
+                let master_password = prompt_master_password(&mut master_password_hash, false);
                 add_to_vault(&mut vault, &name, &password, &master_password);
             }
             "generate" => {
                 let name = rprompt::prompt_reply("  > Name: ").unwrap();
                 let password_len: usize = rprompt::prompt_reply("  > Password length: ").unwrap().parse().unwrap();
                 let password = generate_password(password_len);
-                let master_password = prompt_master_password(&mut master_password_hash);
+                let master_password = prompt_master_password(&mut master_password_hash, false);
                 add_to_vault(&mut vault, &name, &password, &master_password);
             }
             "remove" => {
@@ -224,7 +232,7 @@ fn main() {
                 };
                 if id < items.len() {
                     let name: &str = &items[id];
-                    let master_password = prompt_master_password(&mut master_password_hash);
+                    let master_password = prompt_master_password(&mut master_password_hash, false);
                     match vault.get(name, &master_password) {
                         Some(password) => {
                             println!("    - name: {}", name);
@@ -250,8 +258,28 @@ fn main() {
                     }
                 });
             }
+            "reset" => {
+                let previous_master_password = prompt_master_password(&mut master_password_hash, false);
+                let new_master_password = prompt_master_password(&mut master_password_hash, true);
+                println!("    + Re-encrypting your vault with the new master password, this may take some time...");
+                let items = vault.list();
+                for (i, item) in items.iter().enumerate() {
+                    match vault.get(item, &previous_master_password) {
+                        Some(password) => {
+                            vault.remove(item);
+                            match vault.add(item, &password, &new_master_password) {
+                                Some(_) => println!("      + {}/{} passwords updated.", i + 1, items.len()),
+                                None => println!("      xxx error encrypting password for {} xxx", item),
+                            }
+                        }
+                        None => println!("      xxx error decrypting password for {} xxx", item),
+                    };
+                }
+                println!("    + Your master password was successfully updated.");
+                println!("    + Don't forget to use the \"save\" command with your new password to save your changes.");
+            }
             "save" => {
-                let master_password = prompt_master_password(&mut master_password_hash);
+                let master_password = prompt_master_password(&mut master_password_hash, false);
                 match args.vault_format {
                     VaultFormat::Plain => file::save_plain_vault(&vault, &args.vault_file, &master_password),
                     VaultFormat::Image => {
